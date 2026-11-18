@@ -86,9 +86,9 @@ Do not create new top-level folders.
 ```
 data/raw/        whole life of the 2025 market and the 2025 Fed-meeting markets: hourly quotes, every trade
 data/minute/     one-minute quotes and trades around 62 scheduled releases, Sep 2024 - Oct 2026
-results/         event-study output from earlier work, the 2025 report table, press quotes
-figures/         figures from the proposal and earlier work
-code/            fetch script and the Part 2 preview script
+results/         Part 2 event study (all specifications), contract-level moves, the 2025 report table, press quotes
+figures/         Part 2 figures
+code/            fetch script and the Part 2 scripts
 ```
 
 ### data/raw
@@ -105,8 +105,11 @@ The count market has contracts "exactly 0 cuts" (`-T0`) to "exactly 13 cuts" (`-
 
 ### data/minute
 
-`releases.csv` lists the scheduled releases (`date`, `type` = NFP / CPI / FOMC, `release_utc`). For each release
-date and each contract open at the time there are two files:
+`releases.csv` lists the scheduled releases (`date`, `type` = NFP / CPI / FOMC, `release_utc`).
+`contracts.csv` lists, for each release, every contract of these series that was open one hour before it:
+`role` is `settles` (the contract resolves on this release, e.g. the payrolls market on a jobs report) or `forward`;
+it also carries the contract terms (`event_ticker`, `strike_type`, `floor_strike`, `cap_strike`, `close_time`,
+`result`, `expiration_value`). For each release and contract there are two files:
 
 - `candles/<date>__<ticker>.csv`: one-minute bars from about a day before to a day or two after the release.
   `ts` Unix time; `bid`, `ask`, `close` in cents; `volume` and `open_interest` in contracts. A minute appears only
@@ -115,42 +118,63 @@ date and each contract open at the time there are two files:
 
 Series: the count markets (`RATECUTCOUNT-24DEC31` for 2024, `KXRATECUTCOUNT-25DEC31`, `KXRATECUTCOUNT-26DEC31`),
 the Fed-meeting markets (`FEDDECISION` in 2024, `KXFEDDECISION` from Dec 2024) and Kalshi's payrolls market
-(`PAYROLLS`, then `KXPAYROLLS`). Kalshi's series names gained a `KX` prefix in late 2024.
+(`PAYROLLS`, then `KXPAYROLLS`). Kalshi's series names gained a `KX` prefix in late 2024. `data/minute/` was
+collected with an earlier pipeline and is included as it is.
 
-### results
+### code and results (Part 2)
 
-These come from earlier work on 24 jobs reports (Sep 2024 - Oct 2026) and are the starting point for Part 2.
+| Script | Output | What it does |
+| --- | --- | --- |
+| `part2_event_study.py` | `results/part2_event_study/<run>/` | Implied value of both markets by minute (-60 to +180) around every release, the payrolls surprise, and the regressions across the 24 jobs reports (Sep 2024 - Oct 2026). |
+| `part2_contract_moves.py` | `results/part2_contract_moves.csv` | Size and timing of each contract's move at the release and at the same clock time one day earlier and later. |
+| `part2_reports_2025.py` | `results/part2_reports_2025.csv`, `figures/part2_aug1.png`, `figures/part2_reports_2025.png` | The eleven 2025 jobs reports one by one. |
+| `part2_share.py` | `figures/part2_share.png` (active), `figures/part2_share_all.png` | Average response to a one-s.d. surprise and the share of the three-hour response by minute. |
 
-| File | What it is |
-| --- | --- |
-| `event_study/levels_by_minute.csv` | Implied value of each market by minute, -60 to +180 around each release. `composite` is `decision_next` (expected policy-rate change at the next meeting, bp) or `cuts_ye` (implied number of cuts in the current year); `node` names the market; `h` minutes from release; `dlevel` change from the average of the five minutes before; `obs_any_60` share of the first 60 minutes in which some contract changed quote or traded. These were computed with the earlier pipeline's rule for the count market, not the 1-cent rule in Conventions. |
-| `event_study/payrolls_surprises.csv` | Published payrolls, Kalshi's expectation one hour before, and the surprise. The delayed September 2025 report (released 20 Nov) has none because that market closed on the original date. |
-| `event_study/beta_*.csv` | Average response to a payroll surprise by minute: `b` = change per thousand jobs of surprise in the market's own unit, 90% bootstrap band, `share` = b(h)/b(180). `all` every report; `active` only reports with frequent quoting; `lookback60` quotes carried forward at most 60 minutes; `placebo_day_before` / `placebo_day_after` the same clock time one day earlier or later, with no release. |
-| `event_study/table_*.csv` | The same at 1, 2, 5, 10, 15, 30, 60, 90, 120 and 180 minutes, with leave-one-report-out ranges (`b_loo_*`, `share_loo_*`) and the most influential report. |
-| `event_study/paired_*.csv` | The two markets on the same reports and bootstrap draws: each response in bp, their difference (`level_diff_bp`) and the difference in shares (`share_diff`). |
-| `event_study/contract_moves.csv` | Contract-level moves for contracts settling more than 20 days after each release (all series in the earlier data): `R` move in cents from before to 2-3 hours after, `tau90` minutes until 90% of the move was reached and held, `hspread` half the median spread; `shift` 0 at the release, -1440 / 1440 the day before / after. |
-| `part2_reports_2025.csv` | Each 2025 jobs report: surprise, next-meeting market used, and the move of both markets at 15, 60 and 180 minutes in bp. |
-| `press_claims.csv` | Dated quotes from press coverage on rate-cut odds, with links. Most cite CME FedWatch (futures); none cite Kalshi. |
+Runs of `part2_event_study.py` (`<run>` folder): `all` (every report), `active` (`--min-obs 0.5`: only markets in
+which some contract changed quote or traded in at least half of the first 60 minutes), `lookback60` (quotes carried
+forward at most 60 minutes), `placebo_day_before` / `placebo_day_after` (`--placebo -1440/1440 --lookback 60`: the
+same clock time one day earlier or later, when there is no release; the responses should be zero).
 
-Main findings so far (24 reports): the next-meeting market completes its three-hour response within 15 minutes; the
-count market has done about 40% after 15 minutes and about 70% after an hour; at the same clock time on the day
-before or after, both stay within 0.2 bp of zero at 5 and 30 minutes. With the 2025 reports alone the pattern is weaker and leans on 10 January 2025.
+Files in each run folder:
 
-### figures
+- `levels.csv`: `composite` is `decision_next` (expected policy-rate change at the next meeting, bp) or `cuts_ye`
+  (implied number of cuts in the current year); `market` names the Kalshi event used; `h` minutes from the
+  release; `level` the implied value; `dlevel` its change from the average of the five minutes before the release;
+  `obs_any_60` share of minutes 1-60 in which some contract changed quote or traded; `spread_pre` median
+  pre-release spread (cents).
+- `surprises.csv`: published payrolls, Kalshi's expectation one hour before, and the surprise, in thousands of jobs.
+  The delayed September 2025 report (released 20 Nov) has none: that payrolls market closed on the original date.
+- `beta.csv`: by minute, `b` = change per thousand jobs of surprise in the market's own unit, 90% bootstrap band,
+  `share` = b(h)/b(180) with its band (only when the three-hour response is clearly non-zero).
+- `table.csv`: the same at 1, 2, 5, 10, 15, 30, 60, 90, 120 and 180 minutes, plus `b_sd` (response to a
+  one-s.d. surprise), leave-one-report-out ranges (`b_loo_*`, `share_loo_*`) and the most influential report.
+- `paired.csv`: both markets on the same reports and bootstrap draws, in bp for a one-s.d. surprise: each response,
+  their difference (`level_diff_bp`) and the difference in shares (`share_diff`).
 
-| File | What it shows |
-| --- | --- |
-| `fig1_life.png` | Daily implied number of 2025 cuts and the prices of 1, 2 and 3 cuts, with jobs reports and the three cuts marked. Draft from the proposal, made with the conventions above; Part 1 replaces it with a script in `code/`. |
-| `fig2_aug1.png` | Minute-by-minute response of both markets to the 1 August 2025 jobs report. |
-| `fig_reports_2025.png` | The same for each of the eleven 2025 jobs reports. |
-| `fig_share_24reports.png` | Average response and share of the three-hour response by minute, 24 reports, active sample. |
+`part2_contract_moves.csv`: one row per contract settling more than 20 days after the release and per `shift`
+(0 at the release, -1440 / 1440 the day before / after). `R` move in cents from just before to 2-3 hours after,
+`tau90` minutes until 90% of the move was reached and held, `half_spread` in cents.
+
+The event study uses the earlier pipeline's rule for the count market (threshold ladders made non-increasing,
+buckets rescaled, contracts with a median pre-release spread above 20 cents dropped), not the 1-cent rule in
+Conventions. The port reproduces the earlier
+results exactly except for the bootstrap bands, which differ slightly because the random draws differ.
+
+`press_claims.csv`: dated quotes from press coverage on rate-cut odds, with links. Most cite CME FedWatch
+(futures); none cite Kalshi.
+
+Main findings so far (24 reports): the next-meeting market completes its three-hour response within 15 minutes;
+the count market has done about 40% after 15 minutes and about 70% after an hour; at the same clock time on the
+day before or after, both stay within 0.2 bp of zero at 5 and 30 minutes. With the 2025 reports alone the pattern
+is weaker and leans on 10 January 2025.
 
 ## Reproduce
 
 ```
 pip install -r requirements.txt
-python code/fetch_kalshi.py markets   # then: hourly, trades
-python code/part2_preview.py          # results/part2_reports_2025.csv, fig2_aug1.png, fig_reports_2025.png
+python code/fetch_kalshi.py markets          # then: hourly, trades (data/raw)
+python code/part2_event_study.py             # then the other runs listed above
+python code/part2_contract_moves.py
+python code/part2_reports_2025.py
+python code/part2_share.py && python code/part2_share.py all
 ```
-
-`data/minute/` and `results/event_study/` were produced by an earlier pipeline and are included as they are.
