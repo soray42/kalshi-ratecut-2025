@@ -1,0 +1,4 @@
+trade_id,created_time,yes_price,count,taker_side
+9c1887af-53dc-4450-adcf-e5705aee39f5,2025-09-04T20:50:07.27447Z,97.0,65.0,yes
+7dabc4c6-06c7-4bbd-b78c-d9e8abecdc7a,2025-09-04T20:50:07.27447Z,97.0,45.0,yes
+981f32d0-4853-4af3-87ea-e0e06c37e595,2025-09-05T14:53:28.155296Z,94.0,390.0,no

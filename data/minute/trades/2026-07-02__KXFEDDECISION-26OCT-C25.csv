@@ -1,0 +1,4 @@
+trade_id,created_time,yes_price,count,taker_side
+e50074a5-ba91-6924-55f2-2541d4fcd90c,2026-07-02T17:39:23.798241Z,17.0,1.0,yes
+dbee0a66-42b3-630a-6b9f-1f26f3dd563e,2026-07-02T17:39:23.798241Z,18.0,0.1,yes
+fcf2dd2a-97df-694a-54a7-4ad28bd4f1ca,2026-07-02T17:39:34.294771Z,18.0,1.31,yes
