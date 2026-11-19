@@ -86,9 +86,11 @@ Do not create new top-level folders.
 ```
 data/raw/        whole life of the 2025 market and the 2025 Fed-meeting markets: hourly quotes, every trade
 data/minute/     one-minute quotes and trades around 62 scheduled releases, Sep 2024 - Oct 2026
-results/         Part 2 event study (all specifications), contract-level moves, the 2025 report table, press quotes
-figures/         Part 2 figures
-code/            fetch script and the Part 2 scripts
+data/derived/    implied distribution of the count market, by hour and by day
+results/         Part 1 tables (largest moves, press vs Kalshi, liquidity); Part 2 event study (all
+                 specifications), contract-level moves, the 2025 report table; press quotes
+figures/         Part 1 and Part 2 figures
+code/            fetch script, Part 1 and Part 2 scripts
 ```
 
 ### data/raw
@@ -120,6 +122,17 @@ Series: the count markets (`RATECUTCOUNT-24DEC31` for 2024, `KXRATECUTCOUNT-25DE
 the Fed-meeting markets (`FEDDECISION` in 2024, `KXFEDDECISION` from Dec 2024) and Kalshi's payrolls market
 (`PAYROLLS`, then `KXPAYROLLS`). Kalshi's series names gained a `KX` prefix in late 2024. `data/minute/` was
 collected with an earlier pipeline and is included as it is.
+
+### code and results (Part 1)
+
+| Script | Output | What it does |
+| --- | --- | --- |
+| `part1_implied.py` | `data/derived/cutcount25_{hourly,daily}.csv` | Implied distribution over the number of cuts (`p0`-`p14`) and its mean (`implied_cuts`), by hour and at each US Eastern end of day, with the 1-cent rule in Conventions; hours where a 1-4 cut contract is quoted wider than 5 cents are dropped. The daily file also has the median spread of the 1-4 cut contracts, open interest, volume and trades. The other part1 scripts import from it. |
+| `part1_top_moves.py` | `results/part1_top_moves.csv`, `figures/part1_top_moves.png` | The ten largest day-to-day changes in the implied number of cuts in 2025, the contract that moved most, volume, any scheduled release that day, and the news that day with a link (collected by hand, in the script). |
+| `part1_press.py` | `results/part1_press.csv` | Each press quote in `press_claims.csv` that states a market probability, next to Kalshi's price for the same question at 4 pm US Eastern that day (10 am for the article that says "Friday morning") and, where the article compares with the day before, at the same time a day earlier. |
+| `part1_liquidity.py` | `results/part1_liquidity.csv`, `results/part1_liquidity_by_contract.csv`, `figures/part1_liquidity.png` | By month: volume, trades, open interest at month end, median daily spread of the 1-4 cut contracts. By contract: share of lifetime volume and share of 2025 hourly quotes with a bid of 2 cents or more. |
+
+Part 1 figures use a dark style to match the check-in template.
 
 ### code and results (Part 2)
 
@@ -173,6 +186,10 @@ is weaker and leans on 10 January 2025.
 ```
 pip install -r requirements.txt
 python code/fetch_kalshi.py markets          # then: hourly, trades (data/raw)
+python code/part1_implied.py
+python code/part1_top_moves.py
+python code/part1_press.py
+python code/part1_liquidity.py
 python code/part2_event_study.py             # then the other runs listed above
 python code/part2_contract_moves.py
 python code/part2_reports_2025.py
